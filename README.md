@@ -2,4 +2,5 @@
 ROS Node for the new USBoardV2 (USS5)
 
 # Documentation
-For more details such as installation and usage, please visit our documentations in https://docs.neobotix.de/display/USBoardUSS5/ROS+Node
+For more details such as installation and usage, please visit our documentations in [https://docs.neobotix.de/display/USBoardUSS5/ROS+Node
+](https://neobotix-docs.de/hardware/en/components/uss5/ros2.html)
