@@ -144,12 +144,12 @@ int main(int argc, char** argv)
 	int can_baud_rate = 0;
 	double update_rate = 0.0;
 
-	nh->declare_parameter("can_device");
-	nh->declare_parameter("serial_port");
-	nh->declare_parameter("topic_path");
-	nh->declare_parameter("can_id");
-	nh->declare_parameter("can_baud_rate");
-	nh->declare_parameter("update_rate");
+	nh->declare_parameter<std::string>("can_device", "can0");
+	nh->declare_parameter<std::string>("serial_port", "/dev/ttyUSB0");
+	nh->declare_parameter<std::string>("topic_path", "/usboard_v2");
+	nh->declare_parameter<int>("can_id", 1024);
+	nh->declare_parameter<int>("can_baud_rate", 1000000);
+	nh->declare_parameter<double>("update_rate", 5.0);
 
 	nh->get_parameter("can_device", can_device);
 	nh->get_parameter("serial_port", serial_port);

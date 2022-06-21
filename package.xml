@@ -9,7 +9,7 @@
   <license>BSD</license>
   <url type="website">https://www.neobotix-roboter.de/</url>
   <author>Max Wittal</author>
-  <author>Pradheep Krishna M P</author>
+  <author>Pradheep Padmanabhan</author>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
