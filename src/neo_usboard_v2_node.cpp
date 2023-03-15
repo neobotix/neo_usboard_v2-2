@@ -128,7 +128,7 @@ protected:
 		std::shared_ptr<neo_srvs2::srv::USBoardToggleSensor::Response>  )
 	{
 		std::vector<vnx::bool_t> sensors;
-		sensors.reserve(16);
+		sensors.resize(16);
 
 		for(int i = 0; i < 16; i++){
 			sensors[i] = req->state[i];
