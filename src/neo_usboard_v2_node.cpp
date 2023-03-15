@@ -16,6 +16,10 @@
 #include <sensor_msgs/msg/range.hpp>
 #include <neo_usboard_v2/package.hxx>
 #include <neo_usboard_v2/ROS_NodeBase.hxx>
+#include <neo_srvs2/srv/us_board_toggle_sensor.hpp>
+
+using std::placeholders::_1;
+using std::placeholders::_2;
 
 
 class ROS_Node : public rclcpp::Node, public neo_usboard_v2::ROS_NodeBase  {
@@ -33,6 +37,8 @@ protected:
 		set_timer_millis(1000, std::bind(&ROS_Node::request_config, this));
 
 		topicPub_usBoard = this->create_publisher<neo_msgs2::msg::USBoardV2>(topic_path + "/measurements", 1);
+		srvSetChannel_active = this->create_service<neo_srvs2::srv::USBoardToggleSensor>(
+			"set_channel_active", std::bind(&ROS_Node::setChannelActive, this, _1, _2));
 
 		Super::main();
 
@@ -117,6 +123,23 @@ protected:
 		}
 	}
 
+	void setChannelActive(
+		const std::shared_ptr<neo_srvs2::srv::USBoardToggleSensor::Request> req,
+		std::shared_ptr<neo_srvs2::srv::USBoardToggleSensor::Response>  )
+	{
+		std::vector<vnx::bool_t> sensors;
+		sensors.reserve(16);
+
+		for(int i = 0; i < 16; i++){
+			sensors[i] = req->state[i];
+			i++;
+		}
+
+		usboard_sync.set_channel_active(sensors);
+
+		return;
+	}
+
 private:
 	pilot::usboard::USBoardModuleClient usboard_sync;
 
@@ -124,6 +147,7 @@ private:
 
 	rclcpp::Publisher<neo_msgs2::msg::USBoardV2>::SharedPtr topicPub_usBoard;
 	rclcpp::Publisher<sensor_msgs::msg::Range>::SharedPtr topicPub_USRangeSensor[16];
+	rclcpp::Service<neo_srvs2::srv::USBoardToggleSensor>::SharedPtr srvSetChannel_active;
 
 };
 
