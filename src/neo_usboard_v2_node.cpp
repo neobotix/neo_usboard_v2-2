@@ -123,9 +123,9 @@ protected:
 		}
 	}
 
-	void setChannelActive(
+	bool setChannelActive(
 		const std::shared_ptr<neo_srvs2::srv::USBoardToggleSensor::Request> req,
-		std::shared_ptr<neo_srvs2::srv::USBoardToggleSensor::Response>  )
+		std::shared_ptr<neo_srvs2::srv::USBoardToggleSensor::Response> res)
 	{
 		std::vector<vnx::bool_t> sensors;
 		sensors.resize(16);
@@ -136,8 +136,12 @@ protected:
 		}
 
 		usboard_sync.set_channel_active(sensors);
+		
+		config=NULL;
+		request_config();
 
-		return;
+		res->success = true;
+		return res->success;
 	}
 
 private:
