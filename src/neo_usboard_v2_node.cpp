@@ -85,8 +85,11 @@ protected:
 	{
 		if(value->transmit_mode == pilot::usboard::USBoardConfig::TRANSMIT_MODE_REQUEST)
 		{
+			if (request_timer) {
+				request_timer->stop();
+			}
 			// enable request timer
-			set_timer_millis(update_interval_ms, std::bind(&ROS_Node::update, this));
+			request_timer = set_timer_millis(update_interval_ms, std::bind(&ROS_Node::update, this));
 		}
 		int i = 0;
 		for(const auto& sensor : value->sensor_config)
@@ -137,8 +140,7 @@ protected:
 
 		usboard_sync.set_channel_active(sensors);
 		
-		config=NULL;
-		request_config();
+		config=nullptr;
 
 		res->success = true;
 		return res->success;
@@ -148,6 +150,7 @@ private:
 	pilot::usboard::USBoardModuleClient usboard_sync;
 
 	std::shared_ptr<const pilot::usboard::USBoardConfig> config;
+	std::shared_ptr<vnx::Timer> request_timer;
 
 	rclcpp::Publisher<neo_msgs2::msg::USBoardV2>::SharedPtr topicPub_usBoard;
 	rclcpp::Publisher<sensor_msgs::msg::Range>::SharedPtr topicPub_USRangeSensor[16];
