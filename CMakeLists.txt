@@ -17,6 +17,7 @@ find_package(rclcpp_lifecycle REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(neo_msgs2 REQUIRED)
+find_package(neo_srvs2 REQUIRED)
 
 add_subdirectory(pilot-base)
 add_subdirectory(pilot-usboard)
@@ -41,7 +42,7 @@ add_subdirectory(pilot-usboard)
 
 ament_export_include_directories(generated/include)
 
-ament_export_dependencies(std_msgs tf nav_msgs sensor_msgs)
+ament_export_dependencies(std_msgs neo_srvs2 tf nav_msgs sensor_msgs)
 
 ###########
 ## Build ##
@@ -50,9 +51,9 @@ ament_export_dependencies(std_msgs tf nav_msgs sensor_msgs)
 file(GLOB GENERATED_SOURCE_FILES generated/src/*.cpp)
 
 include_directories(
-	generated/include
-	${Boost_INCLUDE_DIRS}
-	${catkin_INCLUDE_DIRS}
+  generated/include
+  ${Boost_INCLUDE_DIRS}
+  ${catkin_INCLUDE_DIRS}
 )
 
 add_executable(neo_usboard_v2_node src/neo_usboard_v2_node.cpp ${GENERATED_SOURCE_FILES})
@@ -61,7 +62,9 @@ ament_target_dependencies(neo_usboard_v2_node
 rclcpp
 sensor_msgs
 std_msgs
-neo_msgs2  )
+neo_msgs2 
+neo_srvs2
+)
 
 target_link_libraries(neo_usboard_v2_node pilot_usboard pilot_base vnx_base)
 
