@@ -135,7 +135,6 @@ protected:
 
 		for(int i = 0; i < 16; i++){
 			sensors[i] = req->state[i];
-			i++;
 		}
 
 		usboard_sync.set_channel_active(sensors);
