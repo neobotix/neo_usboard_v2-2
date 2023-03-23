@@ -17,6 +17,8 @@
 #include <neo_usboard_v2/package.hxx>
 #include <neo_usboard_v2/ROS_NodeBase.hxx>
 #include <neo_srvs2/srv/us_board_toggle_sensor.hpp>
+#include <neo_srvs2/srv/us_board_set_param.hpp>
+#include <neo_srvs2/srv/us_board_read_param.hpp>
 
 using std::placeholders::_1;
 using std::placeholders::_2;
@@ -39,6 +41,10 @@ protected:
 		topicPub_usBoard = this->create_publisher<neo_msgs2::msg::USBoardV2>(topic_path + "/measurements", 1);
 		srvSetChannel_active = this->create_service<neo_srvs2::srv::USBoardToggleSensor>(
 			"set_channel_active", std::bind(&ROS_Node::setChannelActive, this, _1, _2));
+		srvSetConfig = this->create_service<neo_srvs2::srv::USBoardSetParam>(
+			"set_config", std::bind(&ROS_Node::setConfig, this, _1, _2));
+		srvReadConfig = this->create_service<neo_srvs2::srv::USBoardReadParam>(
+			"read_config", std::bind(&ROS_Node::readConfig, this, _1, _2));
 
 		Super::main();
 
@@ -145,6 +151,22 @@ protected:
 		return res->success;
 	}
 
+	bool setConfig(
+		const std::shared_ptr<neo_srvs2::srv::USBoardSetParam::Request> req,
+		std::shared_ptr<neo_srvs2::srv::USBoardSetParam::Response> res)
+	{
+		// res->success = true;
+		return 1;
+	}
+
+	bool readConfig(
+		const std::shared_ptr<neo_srvs2::srv::USBoardReadParam::Request> req,
+		std::shared_ptr<neo_srvs2::srv::USBoardReadParam::Response> res)
+	{
+		// res->success = true;
+		return 1;
+	}
+
 private:
 	pilot::usboard::USBoardModuleClient usboard_sync;
 
@@ -155,6 +177,8 @@ private:
 	rclcpp::Publisher<sensor_msgs::msg::Range>::SharedPtr topicPub_USRangeSensor[16];
 	rclcpp::Service<neo_srvs2::srv::USBoardToggleSensor>::SharedPtr srvSetChannel_active;
 
+	rclcpp::Service<neo_srvs2::srv::USBoardSetParam>::SharedPtr srvSetConfig;
+	rclcpp::Service<neo_srvs2::srv::USBoardReadParam>::SharedPtr srvReadConfig;
 };
 
 
