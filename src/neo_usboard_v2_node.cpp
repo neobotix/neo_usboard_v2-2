@@ -20,7 +20,7 @@
 
 using std::placeholders::_1;
 using std::placeholders::_2;
-
+using rcl_interfaces::msg::ParameterType;
 
 class ROS_Node : public rclcpp::Node, public neo_usboard_v2::ROS_NodeBase  {
 public:
@@ -36,9 +36,58 @@ protected:
 
 		set_timer_millis(1000, std::bind(&ROS_Node::request_config, this));
 
+		// Parmaters setting and declaration
+		this->declare_parameter<std::string>("can_device", "can0");
+		this->declare_parameter<std::string>("serial_port", "/dev/ttyUSB0");
+		this->declare_parameter<std::string>("topic_path", "/usboard_v2");
+		this->declare_parameter<int>("can_id", 1024);
+		this->declare_parameter<int>("can_baud_rate", 1000000);
+		this->declare_parameter<double>("update_rate", 5.0);
+
+		this->declare_parameter<std::vector<bool>>("active_sensors", active_sensors);
+		this->declare_parameter<std::vector<double>>("warn_distance", warn_distance);
+		this->declare_parameter<std::vector<double>>("alarm_distance", alarm_distance);
+
+		this->declare_parameter<std::vector<bool>>("enable_transmission", enable_transmission);
+		this->declare_parameter<std::vector<uint8_t>>("resolution", resolution);
+		this->declare_parameter<std::vector<uint8_t>>("fire_interval_ms", fire_interval_ms);
+		this->declare_parameter<std::vector<int64_t>>("sending_sensor", sending_sensor);
+		this->declare_parameter<std::vector<bool>>("cross_echo_mod", cross_echo_mode);
+
+		this->declare_parameter<int>("low_pass_gain", 0);
+		this->declare_parameter<bool>("enable_analog_input", true);
+		this->declare_parameter<bool>("enable_legacy_format", true);
+		this->declare_parameter<bool>("enable_can_termination", true);
+		this->declare_parameter<bool>("relay_warn_blocked_invert", true);
+		this->declare_parameter<bool>("relay_alarm_blocked_invert", true);
+
+		this->get_parameter("can_device", can_device);
+		this->get_parameter("serial_port", serial_port);
+		this->get_parameter("topic_path", topic_path);
+		this->get_parameter("can_id", can_id);
+		this->get_parameter("can_baud_rate", can_baud_rate);
+		this->get_parameter("update_rate", update_rate);
+
+		this->get_parameter("active_sensors", active_sensors);
+		this->get_parameter("warn_distance", warn_distance);
+		this->get_parameter("alarm_distance", alarm_distance);
+
+		this->get_parameter("enable_transmission", enable_transmission);
+		this->get_parameter("resolution", resolution);
+		this->get_parameter("fire_interval_ms", fire_interval_ms);
+		this->get_parameter("sending_sensor", sending_sensor);
+		this->get_parameter("cross_echo_mod", cross_echo_mode);
+
+		this->get_parameter("low_pass_gain", low_pass_gain);
+		this->get_parameter("enable_analog_input", enable_analog_input);
+		this->get_parameter("enable_legacy_format", enable_legacy_format);
+		this->get_parameter("enable_can_termination", enable_can_termination);
+		this->get_parameter("relay_warn_blocked_invert", relay_warn_blocked_invert);
+		this->get_parameter("relay_alarm_blocked_invert", relay_alarm_blocked_invert);
+
 		topicPub_usBoard = this->create_publisher<neo_msgs2::msg::USBoardV2>(topic_path + "/measurements", 1);
-		srvSetChannel_active = this->create_service<neo_srvs2::srv::USBoardToggleSensor>(
-			"set_channel_active", std::bind(&ROS_Node::setChannelActive, this, _1, _2));
+		dyn_params_handler = this->add_on_set_parameters_callback(
+			std::bind(&ROS_Node::dynamicParametersCallback, this, std::placeholders::_1));
 
 		Super::main();
 
@@ -61,7 +110,7 @@ protected:
 				sensor_msgs::msg::Range USRangeMsg;
 				USRangeMsg.header.stamp = rclcpp::Clock().now();; 		//time
 				USRangeMsg.header.frame_id = "usrangesensor"+std::to_string(i);		//string
-				USRangeMsg.radiation_type = 0; 			//uint8   => Enum ULTRASOUND=0; INFRARED=1
+				USRangeMsg.radiation_type = 0; 			//uint8_t8   => Enum ULTRASOUND=0; INFRARED=1
 				USRangeMsg.field_of_view = 2.3; 		//float32 [rad]
 				USRangeMsg.min_range = 0.2; 			//float32 [m]
 				USRangeMsg.max_range = 3.0; 			//float32 [m]
@@ -126,23 +175,137 @@ protected:
 		}
 	}
 
-	bool setChannelActive(
-		const std::shared_ptr<neo_srvs2::srv::USBoardToggleSensor::Request> req,
-		std::shared_ptr<neo_srvs2::srv::USBoardToggleSensor::Response> res)
+	rcl_interfaces::msg::SetParametersResult dynamicParametersCallback(std::vector<rclcpp::Parameter> parameters)
 	{
-		std::vector<vnx::bool_t> sensors;
-		sensors.resize(16);
+		// Todo: add mutex
+		rcl_interfaces::msg::SetParametersResult result;
 
-		for(int i = 0; i < 16; i++){
-			sensors[i] = req->state[i];
+		for (auto parameter : parameters) {
+			const auto & type = parameter.get_type();
+			const auto & name = parameter.get_name();
+
+			// If we are trying to change the parameter of a plugin we can just skip it at this point
+			// as they handle parameter changes themselves and don't need to lock the mutex
+			if (name.find('.') != std::string::npos) {
+				continue;
+			}
+
+			if (type == ParameterType::PARAMETER_STRING) {
+				if (name == "can_device") {
+					can_device = parameter.as_string();
+				} else if (name =="serial_port") {
+					serial_port = parameter.as_string();
+				} else if (name =="topic_path") {
+					topic_path = parameter.as_string();
+				} 
+			}
+
+			if (type == ParameterType::PARAMETER_BOOL) {
+				if (name == "enable_analog_input") {
+					enable_analog_input = parameter.as_bool();
+				} else if (name =="enable_legacy_format") {
+					enable_legacy_format = parameter.as_bool();
+				} else if (name =="enable_can_termination") {
+					enable_can_termination = parameter.as_bool();
+				} else if (name =="relay_warn_blocked_invert") {
+					relay_warn_blocked_invert = parameter.as_bool();
+				} else if (name =="relay_alarm_blocked_invert") {
+					relay_alarm_blocked_invert = parameter.as_bool();
+				} 
+			}
+
+			if (type == ParameterType::PARAMETER_DOUBLE_ARRAY) {
+				if (name == "alarm_distance") {
+		      if (parameter.as_double_array().size() != 16) {
+		        RCLCPP_WARN(get_logger(), "Invalid size of parameter %s. Must be size 3", name.c_str());
+		        result.successful = false;
+		        break;
+		      }
+					alarm_distance = parameter.as_double_array();
+				} else if (name =="warn_distance") {
+					if (parameter.as_double_array().size() != 16) {
+		        RCLCPP_WARN(get_logger(), "Invalid size of parameter %s. Must be size 3", name.c_str());
+		        result.successful = false;
+		        break;
+		      }
+					warn_distance = parameter.as_double_array();
+				}
+			}
+
+			if (type == ParameterType::PARAMETER_BOOL_ARRAY) {
+				if (name == "active_sensors") {
+		      if (parameter.as_bool_array().size() != 16) {
+		        RCLCPP_WARN(get_logger(), "Invalid size of parameter %s. Must be size 3", name.c_str());
+		        result.successful = false;
+		        break;
+		      }
+					active_sensors = parameter.as_bool_array();
+				} else if (name =="enable_transmission") {
+					if (parameter.as_bool_array().size() != 4) {
+		        RCLCPP_WARN(get_logger(), "Invalid size of parameter %s. Must be size 3", name.c_str());
+		        result.successful = false;
+		        break;
+		      }
+					enable_transmission = parameter.as_bool_array();
+				} else if (name =="cross_echo_mod") {
+					if (parameter.as_bool_array().size() != 4) {
+		        RCLCPP_WARN(get_logger(), "Invalid size of parameter %s. Must be size 3", name.c_str());
+		        result.successful = false;
+		        break;
+		      }
+					cross_echo_mode = parameter.as_bool_array();
+				} 
+			}
+
+			if (type == ParameterType::PARAMETER_BYTE_ARRAY) {
+				if (name == "resolution") {
+		      if (parameter.as_byte_array().size() != 4) {
+		        RCLCPP_WARN(get_logger(), "Invalid size of parameter %s. Must be size 3", name.c_str());
+		        result.successful = false;
+		        break;
+		      }
+					resolution = parameter.as_byte_array();
+				} else if (name =="fire_interval_ms") {
+					if (parameter.as_byte_array().size() != 4) {
+		        RCLCPP_WARN(get_logger(), "Invalid size of parameter %s. Must be size 3", name.c_str());
+		        result.successful = false;
+		        break;
+		      }
+					fire_interval_ms = parameter.as_byte_array();
+				}
+			}
+
+		if (type == ParameterType::PARAMETER_INTEGER_ARRAY) {
+				if (name == "sending_sensor") {
+		      if (parameter.as_integer_array().size() != 4) {
+		        RCLCPP_WARN(get_logger(), "Invalid size of parameter %s. Must be size 3", name.c_str());
+		        result.successful = false;
+		        break;
+		      }
+					sending_sensor = parameter.as_integer_array();
+				}
+			}
+
+		if (type == ParameterType::PARAMETER_DOUBLE) {
+				if (name == "update_rate") {
+					update_rate = parameter.as_double();
+				}
+			}
+
+		if (type == ParameterType::PARAMETER_INTEGER) {
+				if (name == "can_id") {
+					can_id = parameter.as_int();
+				} else if (name =="can_baud_rate") {
+					can_baud_rate = parameter.as_int();
+				} else if (name =="low_pass_gain") {
+					low_pass_gain = parameter.as_int();
+				}
+			}
 		}
 
-		usboard_sync.set_channel_active(sensors);
-		
-		config=nullptr;
-
-		res->success = true;
-		return res->success;
+		result.successful = true;
+		// Todo send params
+		return result;
 	}
 
 private:
@@ -153,7 +316,36 @@ private:
 
 	rclcpp::Publisher<neo_msgs2::msg::USBoardV2>::SharedPtr topicPub_usBoard;
 	rclcpp::Publisher<sensor_msgs::msg::Range>::SharedPtr topicPub_USRangeSensor[16];
-	rclcpp::Service<neo_srvs2::srv::USBoardToggleSensor>::SharedPtr srvSetChannel_active;
+	rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr dyn_params_handler;
+
+public:
+	std::string can_device;
+	std::string serial_port;
+	std::string topic_path;
+	int can_id = 0;
+	int can_baud_rate = 0;
+	double update_rate = 0.0;
+	
+	// Our new generation supports 16 sensors. Therefore the size of the vector won't go beyond 16
+
+	std::vector<bool> active_sensors = std::vector<bool>(16, true);
+	std::vector<double> warn_distance = std::vector<double>(16, 0.0f);
+	std::vector<double> alarm_distance = std::vector<double>(16, 0.0f);
+
+	// There are 4 sensor groups, following params deals with that
+
+	std::vector<bool> enable_transmission = std::vector<bool>(4, true);
+	std::vector<uint8_t> resolution = std::vector<uint8_t>(4, 0);
+	std::vector<uint8_t> fire_interval_ms = std::vector<uint8_t>(4, 0);
+	std::vector<int64_t> sending_sensor = std::vector<int64_t>(4, 0);
+	std::vector<bool> cross_echo_mode = std::vector<bool>(4, true);
+
+	float low_pass_gain = 0.0f;
+	bool enable_analog_input = true;
+	bool enable_legacy_format = true;
+	bool enable_can_termination = true;
+	bool relay_warn_blocked_invert = true;
+	bool relay_alarm_blocked_invert = true;
 
 };
 
@@ -167,47 +359,26 @@ int main(int argc, char** argv)
 	vnx::init("neo_usboard_v2_node", 0, nullptr);
 	auto nh = std::make_shared<ROS_Node>("ROS_Node");
 
-	std::string can_device;
-	std::string serial_port;
-	std::string topic_path;
-	int can_id = 0;
-	int can_baud_rate = 0;
-	double update_rate = 0.0;
-
-	nh->declare_parameter<std::string>("can_device", "can0");
-	nh->declare_parameter<std::string>("serial_port", "/dev/ttyUSB0");
-	nh->declare_parameter<std::string>("topic_path", "/usboard_v2");
-	nh->declare_parameter<int>("can_id", 1024);
-	nh->declare_parameter<int>("can_baud_rate", 1000000);
-	nh->declare_parameter<double>("update_rate", 5.0);
-
-	nh->get_parameter("can_device", can_device);
-	nh->get_parameter("serial_port", serial_port);
-	nh->get_parameter("topic_path", topic_path);
-	nh->get_parameter("can_id", can_id);
-	nh->get_parameter("can_baud_rate", can_baud_rate);
-	nh->get_parameter("update_rate", update_rate);
-
-	if(can_device != "None")
+	if(nh->can_device != "None")
 	{
 		vnx::Handle<pilot::base::CAN_Proxy> module = new pilot::base::CAN_Proxy("CAN_Proxy");
-		module->device = can_device;
-		module->baud_rate = can_baud_rate;
+		module->device = nh->can_device;
+		module->baud_rate = nh->can_baud_rate;
 		module->input = neo_usboard_v2::can_request;
 		module->output = neo_usboard_v2::can_frames;
 		module.start_detached();
-		std::cout<<"Started " << module.get_name() << " on " << can_device <<std::endl;
+		std::cout<<"Started " << module.get_name() << " on " << nh->can_device <<std::endl;
 	}
-	else if(!serial_port.empty())
+	else if(!nh->serial_port.empty())
 	{
 		vnx::Handle<pilot::base::SerialPort> module = new pilot::base::SerialPort("SerialPort");
-		module->port = serial_port;
+		module->port = nh->serial_port;
 		module->baud_rate = 19200;
 		module->raw_mode = true;
 		module->input = neo_usboard_v2::serial_request;
 		module->output = neo_usboard_v2::serial_data;
 		module.start_detached();
-		std::cout<<"Started " << module.get_name() << " on " << serial_port <<std::endl;
+		std::cout<<"Started " << module.get_name() << " on " << nh->serial_port <<std::endl;
 	}
 	else {
 		std::cout<<"No serial port or CAN device configured!"<<std::endl;
@@ -221,15 +392,15 @@ int main(int argc, char** argv)
 		module->topic_serial_request = neo_usboard_v2::serial_request;
 		module->output_data = neo_usboard_v2::data;
 		module->output_config = neo_usboard_v2::config;
-		module->can_id = can_id;
+		module->can_id = nh->can_id;
 		module.start_detached();
 	}
 	{
 		vnx::Handle<ROS_Node> module = nh;
 		module->input_data = neo_usboard_v2::data;
 		module->input_config = neo_usboard_v2::config;
-		module->update_interval_ms = 1000 / update_rate;
-		module->topic_path = topic_path;
+		module->update_interval_ms = 1000 / nh->update_rate;
+		module->topic_path = nh->topic_path;
 		module.start_detached();
 	}
 
