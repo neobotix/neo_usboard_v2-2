@@ -37,6 +37,9 @@ protected:
 		set_timer_millis(1000, std::bind(&ROS_Node::request_config, this));
 
 		// Parmaters setting and declaration
+		this->declare_parameter<uint8_t>("hardware_version", 0);
+		this->declare_parameter<uint8_t>("serial_number", 0);
+
 		this->declare_parameter<std::string>("can_device", "can0");
 		this->declare_parameter<std::string>("serial_port", "/dev/ttyUSB0");
 		this->declare_parameter<std::string>("topic_path", "/usboard_v2");
@@ -52,7 +55,7 @@ protected:
 		this->declare_parameter<std::vector<uint8_t>>("resolution", resolution);
 		this->declare_parameter<std::vector<uint8_t>>("fire_interval_ms", fire_interval_ms);
 		this->declare_parameter<std::vector<int64_t>>("sending_sensor", sending_sensor);
-		this->declare_parameter<std::vector<bool>>("cross_echo_mod", cross_echo_mode);
+		this->declare_parameter<std::vector<bool>>("cross_echo_mode", cross_echo_mode);
 
 		this->declare_parameter<int>("low_pass_gain", 0);
 		this->declare_parameter<bool>("enable_analog_input", true);
@@ -92,6 +95,88 @@ protected:
 		Super::main();
 
 		rclcpp::shutdown();
+	}
+
+	void set_ros_params(std::shared_ptr<const pilot::usboard::USBoardConfig> value)
+	{
+		serial_number = value->serial_number;
+		hardware_version = value->hardware_version;
+		can_id = value->can_id;
+		can_baud_rate = value->can_baudrate;
+		update_rate = value->update_interval_ms;
+		
+		for (auto i = 0; i < active_sensors.size(); i++) {
+			active_sensors[i] = value->sensor_config[i].active;
+			warn_distance[i] = value->sensor_config[i].warn_distance;
+			alarm_distance[i] = value->sensor_config[i].alarm_distance;
+		}
+
+		for (auto i = 0; i < enable_transmission.size(); i++) {
+			enable_transmission[i] = value->group_config[i].enable_transmission;
+			resolution[i] = value->group_config[i].resolution;
+			fire_interval_ms[i] = value->group_config[i].fire_interval_ms;
+			sending_sensor[i] = value->group_config[i].sending_sensor;
+			cross_echo_mode[i] = value->group_config[i].cross_echo_mode;
+		}
+		
+		low_pass_gain = value->low_pass_gain;
+		enable_analog_input = value->enable_analog_input;
+		enable_legacy_format = value->enable_legacy_format;
+		enable_can_termination = value->enable_can_termination;
+		relay_warn_blocked_invert = value->relay_warn_blocked_invert;
+		relay_alarm_blocked_invert = value->relay_alarm_blocked_invert;
+
+		this->set_parameter(rclcpp::Parameter("hardware_version", hardware_version));
+		this->set_parameter(rclcpp::Parameter("serial_number", serial_number));
+
+		this->set_parameter(rclcpp::Parameter("can_id", can_id));
+		this->set_parameter(rclcpp::Parameter("can_baud_rate", can_baud_rate));
+		this->set_parameter(rclcpp::Parameter("update_rate", update_rate));
+
+		this->set_parameter(rclcpp::Parameter("active_sensors", active_sensors));
+		this->set_parameter(rclcpp::Parameter("warn_distance", warn_distance));
+		this->set_parameter(rclcpp::Parameter("alarm_distance", alarm_distance));
+
+		this->set_parameter(rclcpp::Parameter("enable_transmission", enable_transmission));
+		this->set_parameter(rclcpp::Parameter("resolution", resolution));
+		this->set_parameter(rclcpp::Parameter("fire_interval_ms", fire_interval_ms));
+		this->set_parameter(rclcpp::Parameter("sending_sensor", sending_sensor));
+		this->set_parameter(rclcpp::Parameter("cross_echo_mod", cross_echo_mode));
+
+		this->set_parameter(rclcpp::Parameter("low_pass_gain", low_pass_gain));
+		this->set_parameter(rclcpp::Parameter("enable_analog_input", enable_analog_input));
+		this->set_parameter(rclcpp::Parameter("enable_legacy_format", enable_legacy_format));
+		this->set_parameter(rclcpp::Parameter("enable_can_termination", enable_can_termination));
+		this->set_parameter(rclcpp::Parameter("relay_warn_blocked_invert", relay_warn_blocked_invert));
+		this->set_parameter(rclcpp::Parameter("relay_alarm_blocked_invert", relay_alarm_blocked_invert));
+	}
+
+	void set_pilot_params(std::shared_ptr<pilot::usboard::USBoardConfig> value)
+	{
+		value->can_id = can_id;
+		value->can_baudrate = can_baud_rate;
+		value->update_interval_ms = update_rate;
+		
+		for (auto i = 0; i < active_sensors.size(); i++) {
+			value->sensor_config[i].active = active_sensors[i];
+			value->sensor_config[i].warn_distance = warn_distance[i];
+			value->sensor_config[i].alarm_distance = alarm_distance[i];
+		}
+
+		for (auto i = 0; i < enable_transmission.size(); i++) {
+			value->group_config[i].enable_transmission = enable_transmission[i];
+			value->group_config[i].resolution = resolution[i];
+			value->group_config[i].fire_interval_ms = fire_interval_ms[i];
+			value->group_config[i].sending_sensor = sending_sensor[i];
+			value->group_config[i].cross_echo_mode = cross_echo_mode[i];
+		}
+		
+		value->low_pass_gain = low_pass_gain;
+		value->enable_analog_input = enable_analog_input;
+		value->enable_legacy_format = enable_legacy_format;
+		value->enable_can_termination = enable_can_termination;
+		value->relay_warn_blocked_invert = relay_warn_blocked_invert;
+		value->relay_alarm_blocked_invert = relay_alarm_blocked_invert;
 	}
 
 	void handle(std::shared_ptr<const pilot::usboard::USBoardData> value) override
@@ -134,6 +219,7 @@ protected:
 	{
 		if(value->transmit_mode == pilot::usboard::USBoardConfig::TRANSMIT_MODE_REQUEST)
 		{
+			set_ros_params(value);
 			if (request_timer) {
 				request_timer->stop();
 			}
@@ -166,6 +252,7 @@ protected:
 
 	void request_config()
 	{
+		std::lock_guard<std::mutex> lock_reinit(mutex_);
 		try {
 			if(!config) {
 				usboard_sync.request_config();
@@ -173,11 +260,13 @@ protected:
 		} catch(const std::exception& ex) {
 			std::cout<<"Failed to get USBoardConfig: "<<std::endl;
 		}
+		mutex_.unlock();
 	}
 
 	rcl_interfaces::msg::SetParametersResult dynamicParametersCallback(std::vector<rclcpp::Parameter> parameters)
 	{
-		// Todo: add mutex
+	  std::lock_guard<std::mutex> lock_reinit(mutex_);
+		
 		rcl_interfaces::msg::SetParametersResult result;
 
 		for (auto parameter : parameters) {
@@ -217,14 +306,14 @@ protected:
 			if (type == ParameterType::PARAMETER_DOUBLE_ARRAY) {
 				if (name == "alarm_distance") {
 		      if (parameter.as_double_array().size() != 16) {
-		        RCLCPP_WARN(get_logger(), "Invalid size of parameter %s. Must be size 3", name.c_str());
+		        RCLCPP_WARN(get_logger(), "Invalid size of parameter %s. Must be size 16", name.c_str());
 		        result.successful = false;
 		        break;
 		      }
 					alarm_distance = parameter.as_double_array();
 				} else if (name =="warn_distance") {
 					if (parameter.as_double_array().size() != 16) {
-		        RCLCPP_WARN(get_logger(), "Invalid size of parameter %s. Must be size 3", name.c_str());
+		        RCLCPP_WARN(get_logger(), "Invalid size of parameter %s. Must be size 16", name.c_str());
 		        result.successful = false;
 		        break;
 		      }
@@ -235,21 +324,21 @@ protected:
 			if (type == ParameterType::PARAMETER_BOOL_ARRAY) {
 				if (name == "active_sensors") {
 		      if (parameter.as_bool_array().size() != 16) {
-		        RCLCPP_WARN(get_logger(), "Invalid size of parameter %s. Must be size 3", name.c_str());
+		        RCLCPP_WARN(get_logger(), "Invalid size of parameter %s. Must be size 16", name.c_str());
 		        result.successful = false;
 		        break;
 		      }
 					active_sensors = parameter.as_bool_array();
 				} else if (name =="enable_transmission") {
 					if (parameter.as_bool_array().size() != 4) {
-		        RCLCPP_WARN(get_logger(), "Invalid size of parameter %s. Must be size 3", name.c_str());
+		        RCLCPP_WARN(get_logger(), "Invalid size of parameter %s. Must be size 4", name.c_str());
 		        result.successful = false;
 		        break;
 		      }
 					enable_transmission = parameter.as_bool_array();
 				} else if (name =="cross_echo_mod") {
 					if (parameter.as_bool_array().size() != 4) {
-		        RCLCPP_WARN(get_logger(), "Invalid size of parameter %s. Must be size 3", name.c_str());
+		        RCLCPP_WARN(get_logger(), "Invalid size of parameter %s. Must be size 4", name.c_str());
 		        result.successful = false;
 		        break;
 		      }
@@ -260,18 +349,26 @@ protected:
 			if (type == ParameterType::PARAMETER_BYTE_ARRAY) {
 				if (name == "resolution") {
 		      if (parameter.as_byte_array().size() != 4) {
-		        RCLCPP_WARN(get_logger(), "Invalid size of parameter %s. Must be size 3", name.c_str());
+		        RCLCPP_WARN(get_logger(), "Invalid size of parameter %s. Must be size 4", name.c_str());
 		        result.successful = false;
 		        break;
 		      }
 					resolution = parameter.as_byte_array();
 				} else if (name =="fire_interval_ms") {
 					if (parameter.as_byte_array().size() != 4) {
-		        RCLCPP_WARN(get_logger(), "Invalid size of parameter %s. Must be size 3", name.c_str());
+		        RCLCPP_WARN(get_logger(), "Invalid size of parameter %s. Must be size 4", name.c_str());
 		        result.successful = false;
 		        break;
 		      }
 					fire_interval_ms = parameter.as_byte_array();
+				} else if (name == "hardware_version") {
+					RCLCPP_WARN(get_logger(), "Invalid, this parameter %s is a constant variable", name.c_str());
+		        result.successful = false;
+		        break;
+				} else if (name =="serial_number") {
+					RCLCPP_WARN(get_logger(), "Invalid, this parameter %s is a constant variable", name.c_str());
+		        result.successful = false;
+		        break;
 				}
 			}
 
@@ -304,7 +401,12 @@ protected:
 		}
 
 		result.successful = true;
-		// Todo send params
+		auto new_config = vnx::clone(config);
+		set_pilot_params(new_config);
+		usboard_sync.send_config(new_config); //sending config
+		config = new_config;
+		mutex_.unlock();
+
 		return result;
 	}
 
@@ -313,6 +415,7 @@ private:
 
 	std::shared_ptr<const pilot::usboard::USBoardConfig> config;
 	std::shared_ptr<vnx::Timer> request_timer;
+	std::mutex mutex_;
 
 	rclcpp::Publisher<neo_msgs2::msg::USBoardV2>::SharedPtr topicPub_usBoard;
 	rclcpp::Publisher<sensor_msgs::msg::Range>::SharedPtr topicPub_USRangeSensor[16];
@@ -322,6 +425,10 @@ public:
 	std::string can_device;
 	std::string serial_port;
 	std::string topic_path;
+
+	uint8_t serial_number;
+	uint8_t hardware_version;
+
 	int can_id = 0;
 	int can_baud_rate = 0;
 	double update_rate = 0.0;
