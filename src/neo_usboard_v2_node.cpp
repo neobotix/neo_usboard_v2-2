@@ -214,14 +214,16 @@ protected:
 		{
 			usBoard.analog[i] = value->analog_input[i];
 		}
-		topicPub_usBoard->publish(usBoard);
+		topicPub_usBoard->publish(usBoard);		
 	}
 
 	void handle(std::shared_ptr<const pilot::usboard::USBoardConfig> value) override
 	{
+		// Map the params from Pilot to ROS as soon as the values are set
+		set_ros_params(value);
 		if(value->transmit_mode == pilot::usboard::USBoardConfig::TRANSMIT_MODE_REQUEST)
 		{
-			set_ros_params(value);
+			
 			if (request_timer) {
 				request_timer->stop();
 			}
@@ -270,12 +272,6 @@ protected:
 		for (auto parameter : parameters) {
 			const auto & type = parameter.get_type();
 			const auto & name = parameter.get_name();
-
-			// If we are trying to change the parameter of a plugin we can just skip it at this point
-			// as they handle parameter changes themselves and don't need to lock the mutex
-			if (name.find('.') != std::string::npos) {
-				continue;
-			}
 
 			if (type == ParameterType::PARAMETER_STRING) {
 				if (name == "can_device") {
@@ -401,11 +397,14 @@ protected:
 		}
 
 		result.successful = true;
+
 		if (change) {
 			auto new_config = vnx::clone(config);
+			change_triggered=false;
 			set_pilot_params(new_config);
-			usboard_sync.send_config(config);
-			config = new_config;
+			std::cout<<"Updating parameter config" << new_config->to_string()<<std::endl;
+			usboard_sync.send_config(new_config);
+			config = new_config;			
 		}		
 
 		return result;
@@ -434,6 +433,7 @@ public:
 	int can_baud_rate = 0;
 	double update_rate = 0.0;
 	bool change = false;
+	bool change_triggered = false;
 	
 	// Our new generation supports 16 sensors. Therefore the size of the vector won't go beyond 16
 
