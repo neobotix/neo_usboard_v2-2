@@ -81,6 +81,9 @@ public:
 									 }
 	void set_ros_params(std::shared_ptr<const pilot::usboard::USBoardConfig> value)
 	{
+		// prevent our own changes from triggering lots of param updates
+		ros_params_initialized = false;
+
 		serial_number = value->serial_number;
 		hardware_version = value->hardware_version;
 		can_id = value->can_id;
@@ -131,7 +134,8 @@ public:
 		this->set_parameter(rclcpp::Parameter("enable_can_termination", enable_can_termination));
 		this->set_parameter(rclcpp::Parameter("relay_warn_blocked_invert", relay_warn_blocked_invert));
 		this->set_parameter(rclcpp::Parameter("relay_alarm_blocked_invert", relay_alarm_blocked_invert));
-		change = true;
+
+		ros_params_initialized = true;
 	}
 
 protected:
@@ -153,7 +157,7 @@ protected:
 
 	
 
-	void set_pilot_params(std::shared_ptr<pilot::usboard::USBoardConfig> value)
+	void set_pilot_params(std::shared_ptr<pilot::usboard::USBoardConfig> value) const
 	{
 		value->can_id = can_id;
 		value->can_baudrate = can_baud_rate;
@@ -219,8 +223,6 @@ protected:
 
 	void handle(std::shared_ptr<const pilot::usboard::USBoardConfig> value) override
 	{
-		// Map the params from Pilot to ROS as soon as the values are set
-		set_ros_params(value);
 		if(value->transmit_mode == pilot::usboard::USBoardConfig::TRANSMIT_MODE_REQUEST)
 		{
 			
@@ -239,12 +241,17 @@ protected:
 			}
 			i++;
 		}
+
 		config = value;
+		// Map the params from Pilot to ROS as soon as the values are set
+		set_ros_params(value);
 		std::cout<<"Got USBoardConfig: " << value->to_string()<<std::endl;
 	}
 
 	void update()
 	{
+		std::lock_guard<std::mutex> lock(mutex_usboard_sync);
+
 		// request sensor data
 		usboard_sync.request_data(std::vector<bool>(sensor_group_enable.begin(), sensor_group_enable.end()));
 
@@ -256,6 +263,8 @@ protected:
 
 	void request_config()
 	{
+		std::lock_guard<std::mutex> lock(mutex_usboard_sync);
+
 		try {
 			if(!config) {
 				usboard_sync.request_config();
@@ -268,6 +277,11 @@ protected:
 	rcl_interfaces::msg::SetParametersResult dynamicParametersCallback(std::vector<rclcpp::Parameter> parameters)
 	{
 		rcl_interfaces::msg::SetParametersResult result;
+		if(!config || !ros_params_initialized){
+			result.successful = false;
+			return result;
+		}
+		result.successful = true;
 
 		for (auto parameter : parameters) {
 			const auto & type = parameter.get_type();
@@ -396,15 +410,19 @@ protected:
 
 		}
 
-		result.successful = true;
-
-		if (change) {
+		if (result.successful) {
 			auto new_config = vnx::clone(config);
-			change_triggered=false;
 			set_pilot_params(new_config);
-			std::cout<<"Updating parameter config" << new_config->to_string()<<std::endl;
-			usboard_sync.send_config(new_config);
-			config = new_config;			
+			{
+				std::lock_guard<std::mutex> lock(mutex_usboard_sync);
+				std::cout << "Updating parameter config: " << new_config->to_string() << std::endl;
+				try{
+					usboard_sync.send_config(new_config);
+				}catch(const std::exception &err){
+					RCLCPP_WARN(get_logger(), "Sending USBoard config failed with: ", err.what().c_str());
+				}
+			}
+			config = new_config;
 		}		
 
 		return result;
@@ -415,7 +433,7 @@ private:
 
 	std::shared_ptr<const pilot::usboard::USBoardConfig> config;
 	std::shared_ptr<vnx::Timer> request_timer;
-	std::mutex mutex_;
+	std::mutex mutex_usboard_sync;
 
 	rclcpp::Publisher<neo_msgs2::msg::USBoardV2>::SharedPtr topicPub_usBoard;
 	rclcpp::Publisher<sensor_msgs::msg::Range>::SharedPtr topicPub_USRangeSensor[16];
@@ -432,8 +450,7 @@ public:
 	int can_id = 0;
 	int can_baud_rate = 0;
 	double update_rate = 0.0;
-	bool change = false;
-	bool change_triggered = false;
+	bool ros_params_initialized = false;
 	
 	// Our new generation supports 16 sensors. Therefore the size of the vector won't go beyond 16
 
