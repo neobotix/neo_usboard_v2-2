@@ -223,21 +223,28 @@ protected:
 
 	void handle(std::shared_ptr<const pilot::usboard::USBoardConfig> value) override
 	{
+		// enable or disable request timer
 		if(value->transmit_mode == pilot::usboard::USBoardConfig::TRANSMIT_MODE_REQUEST)
 		{
-			
-			if (request_timer) {
+			if(!request_timer){
+				request_timer = set_timer_millis(update_interval_ms, std::bind(&ROS_Node::update, this));
+			}
+			request_timer->reset();
+		}else{
+			if(request_timer){
 				request_timer->stop();
 			}
-			// enable request timer
-			request_timer = set_timer_millis(update_interval_ms, std::bind(&ROS_Node::update, this));
 		}
+
 		int i = 0;
 		for(const auto& sensor : value->sensor_config)
 		{
 			if(sensor.active) {
 				sensor_group_enable[i / 4] = true;		// auto enable group for requests
 				topicPub_USRangeSensor[i] = this->create_publisher<sensor_msgs::msg::Range>(topic_path + "/sensor" + std::to_string(i), 1);
+			}else{
+				senser_group_enable[i / 4] = false;
+				topicPub_USRangeSensor[i] = nullptr;
 			}
 			i++;
 		}
@@ -415,14 +422,15 @@ protected:
 			set_pilot_params(new_config);
 			{
 				std::lock_guard<std::mutex> lock(mutex_usboard_sync);
-				std::cout << "Updating parameter config: " << new_config->to_string() << std::endl;
 				try{
 					usboard_sync.send_config(new_config);
-					config = new_config;
 				}catch(const std::exception &err){
 					result.successful = false;
 					RCLCPP_WARN(get_logger(), "Sending USBoard config failed with: %s", err.what());
 				}
+			}
+			if(result.successful){
+				publish(new_config, input_config);
 			}
 		}		
 
