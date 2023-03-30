@@ -418,11 +418,12 @@ protected:
 				std::cout << "Updating parameter config: " << new_config->to_string() << std::endl;
 				try{
 					usboard_sync.send_config(new_config);
+					config = new_config;
 				}catch(const std::exception &err){
-					RCLCPP_WARN(get_logger(), "Sending USBoard config failed with: ", err.what().c_str());
+					result.successful = false;
+					RCLCPP_WARN(get_logger(), "Sending USBoard config failed with: %s", err.what());
 				}
 			}
-			config = new_config;
 		}		
 
 		return result;
