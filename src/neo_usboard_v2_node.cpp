@@ -243,7 +243,7 @@ protected:
 				sensor_group_enable[i / 4] = true;		// auto enable group for requests
 				topicPub_USRangeSensor[i] = this->create_publisher<sensor_msgs::msg::Range>(topic_path + "/sensor" + std::to_string(i), 1);
 			}else{
-				senser_group_enable[i / 4] = false;
+				sensor_group_enable[i / 4] = false;
 				topicPub_USRangeSensor[i] = nullptr;
 			}
 			i++;
