@@ -213,11 +213,11 @@ protected:
 					topicPub_USRangeSensor[i]->publish(USRangeMsg);
 				}
 
-				if(value->sensor[i] >= warn_distance[i]) {
+				if(value->sensor[i] <= warn_distance[i] && value->sensor[i] != -1.0) {
 					usBoard.warn[i] = true;
 				}
 
-				if(value->sensor[i] >= alarm_distance[i]) {
+				if(value->sensor[i] <= alarm_distance[i] && value->sensor[i] != -1.0) {
 					usBoard.alarm[i] = true;
 				}
 			}
