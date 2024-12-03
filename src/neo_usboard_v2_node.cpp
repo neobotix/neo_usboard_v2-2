@@ -49,6 +49,8 @@ protected:
 		{
 			const bool is_active = config && config->sensor_config[i].active;
 			usBoard.active[i] = is_active;
+			usBoard.alarm[i] = false;
+			usBoard.warn[i] = false;
 
 			if(is_active)
 			{
@@ -63,6 +65,14 @@ protected:
 
 				if(topicPub_USRangeSensor[i]) {
 					topicPub_USRangeSensor[i]->publish(USRangeMsg);
+				}
+
+				if(value->sensor[i] <= warn_distance[i] && value->sensor[i] != -1.0) {
+					usBoard.warn[i] = true;
+				}
+
+				if(value->sensor[i] <= alarm_distance[i] && value->sensor[i] != -1.0) {
+					usBoard.alarm[i] = true;
 				}
 			}
 			usBoard.sensor[i] = value->sensor[i];
