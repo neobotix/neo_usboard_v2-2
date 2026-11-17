@@ -4,8 +4,8 @@
 #include <neo_usboard_v2/package.hxx>
 #include <neo_usboard_v2/ROS_NodeBase.hxx>
 #include <vnx/NoSuchMethod.hxx>
+#include <pilot/USBoardData.hxx>
 #include <pilot/usboard/USBoardConfig.hxx>
-#include <pilot/usboard/USBoardData.hxx>
 #include <vnx/Module.h>
 #include <vnx/ModuleInterface_vnx_get_config.hxx>
 #include <vnx/ModuleInterface_vnx_get_config_return.hxx>
@@ -225,11 +225,11 @@ void ROS_NodeBase::vnx_handle_switch(std::shared_ptr<const vnx::Value> _value) {
 	const auto* _type_code = _value->get_type_code();
 	while(_type_code) {
 		switch(_type_code->type_hash) {
+			case 0x4850604e2930c0a0ull:
+				handle(std::static_pointer_cast<const ::pilot::USBoardData>(_value));
+				return;
 			case 0x9c0fb140354b6e4cull:
 				handle(std::static_pointer_cast<const ::pilot::usboard::USBoardConfig>(_value));
-				return;
-			case 0xbd08b8f30252bcb1ull:
-				handle(std::static_pointer_cast<const ::pilot::usboard::USBoardData>(_value));
 				return;
 			default:
 				_type_code = _type_code->super;
