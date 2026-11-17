@@ -12,7 +12,7 @@ module ROS_Node {
 	bool sensor_group_enable[4];			// which sensor groups should be requested (default = all)
 	
 	
-	void handle(pilot.usboard.USBoardData sample);
+	void handle(pilot.USBoardData sample);
 	void handle(pilot.usboard.USBoardConfig sample);
 	
 }
