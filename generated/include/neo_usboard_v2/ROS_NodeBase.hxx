@@ -5,8 +5,8 @@
 #define INCLUDE_neo_usboard_v2_ROS_NodeBase_HXX_
 
 #include <neo_usboard_v2/package.hxx>
+#include <pilot/USBoardData.hxx>
 #include <pilot/usboard/USBoardConfig.hxx>
-#include <pilot/usboard/USBoardData.hxx>
 #include <vnx/Module.h>
 #include <vnx/TopicPtr.hpp>
 
@@ -55,7 +55,7 @@ public:
 protected:
 	using Super::handle;
 	
-	virtual void handle(std::shared_ptr<const ::pilot::usboard::USBoardData> _value) {}
+	virtual void handle(std::shared_ptr<const ::pilot::USBoardData> _value) {}
 	virtual void handle(std::shared_ptr<const ::pilot::usboard::USBoardConfig> _value) {}
 	
 	void vnx_handle_switch(std::shared_ptr<const vnx::Value> _value) override;

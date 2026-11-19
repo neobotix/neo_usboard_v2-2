@@ -5,8 +5,8 @@
 #define INCLUDE_neo_usboard_v2_ROS_Node_CLIENT_HXX_
 
 #include <vnx/Client.h>
+#include <pilot/USBoardData.hxx>
 #include <pilot/usboard/USBoardConfig.hxx>
-#include <pilot/usboard/USBoardData.hxx>
 #include <vnx/Module.h>
 #include <vnx/TopicPtr.hpp>
 

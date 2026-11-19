@@ -20,6 +20,7 @@ find_package(neo_msgs2 REQUIRED)
 find_package(neo_srvs2 REQUIRED)
 
 add_subdirectory(pilot-base)
+add_subdirectory(pilot-public)
 add_subdirectory(pilot-usboard)
 
 #######################################

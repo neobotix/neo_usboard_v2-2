@@ -185,7 +185,7 @@ protected:
 		value->relay_alarm_blocked_invert = relay_alarm_blocked_invert;
 	}
 
-	void handle(std::shared_ptr<const pilot::usboard::USBoardData> value) override
+	void handle(std::shared_ptr<const pilot::USBoardData> value) override
 	{
 		neo_msgs2::msg::USBoardV2 usBoard;
 		usBoard.header.stamp = rclcpp::Clock().now();;

@@ -3,8 +3,8 @@
 
 #include <neo_usboard_v2/package.hxx>
 #include <neo_usboard_v2/ROS_NodeAsyncClient.hxx>
+#include <pilot/USBoardData.hxx>
 #include <pilot/usboard/USBoardConfig.hxx>
-#include <pilot/usboard/USBoardData.hxx>
 #include <vnx/Module.h>
 #include <vnx/ModuleInterface_vnx_get_config.hxx>
 #include <vnx/ModuleInterface_vnx_get_config_return.hxx>
